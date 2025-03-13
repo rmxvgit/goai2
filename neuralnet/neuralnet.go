@@ -125,10 +125,12 @@ Given the neurons activation of one layer, calculate the activation of the next 
 # I do not recommend changing the values of the output slices of this function
 */
 func (run *NetworkRunObject) ForwardLayer(input_layer_index uint, input_layer []float64) (output_sigmoided, output_raw []float64) {
+	output_layer_index := input_layer_index + 1
 	output_raw = mat.MatApply(run.Reference_network.Connections[input_layer_index].Weights, input_layer)
+	output_raw = utils.AddSlice(output_raw, run.Reference_network.Layers[output_layer_index].Biases)
 	output_sigmoided = utils.SliceApply(output_raw, mat.Sigmoid)
-	run.Layers[input_layer_index+1].Nodes_raw = output_raw
-	run.Layers[input_layer_index+1].Nodes_sigmoided = output_sigmoided
+	run.Layers[output_layer_index].Nodes_raw = output_raw
+	run.Layers[output_layer_index].Nodes_sigmoided = output_sigmoided
 	return output_sigmoided, output_raw
 }
 
@@ -148,8 +150,20 @@ ForwardFrom calculates the activation of the network from the given layer.
 */
 func (run *NetworkRunObject) ForwardFrom(input_layer_index uint, input []float64) {
 	copy(run.Layers[input_layer_index].Nodes_sigmoided, input)
-	last_fowardable_layer_index := uint(len(run.Reference_network.Connections) - 1)
+	last_fowardable_layer_index := uint(len(run.Reference_network.Connections))
 	for i := input_layer_index; i < last_fowardable_layer_index; i++ {
 		run.ForwardLayer(i, run.Layers[i].Nodes_sigmoided)
 	}
+}
+
+func (run *NetworkRunObject) GetFinalSigmoidedOutput() []float64 {
+	return run.Layers[len(run.Layers)-1].Nodes_sigmoided
+}
+
+func (run *NetworkRunObject) GetFinalRawOutput() []float64 {
+	return run.Layers[len(run.Layers)-1].Nodes_raw
+}
+
+func (run *NetworkRunObject) GetLayerState(layer_index uint) (layer_sigmoided, layer_raw []float64) {
+	return run.Layers[layer_index].Nodes_sigmoided, run.Layers[layer_index].Nodes_raw
 }

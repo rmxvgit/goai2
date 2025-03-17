@@ -12,7 +12,7 @@ type Net struct {
 	Connections []Connection
 }
 
-// valores associados a uma camada de neuronios
+// values associated with a neuron layer
 type Layer struct {
 	Biases []float64
 }
@@ -27,6 +27,7 @@ type NetworkRunObject struct {
 	Reference_network *Net // reference network used to generate this run info
 	Layers            []LayerRunInfo
 	Connections       []ConnectionRunInfo
+	Expected_outputs  []float64
 }
 
 type ConnectionRunInfo struct {
@@ -34,9 +35,10 @@ type ConnectionRunInfo struct {
 }
 
 type LayerRunInfo struct {
-	Nodes_sigmoided  []float64
-	Nodes_raw        []float64
-	Nodes_derivative []float64 // this tells how much the output of the neuron changes with respect to each node
+	Nodes_sigmoided    []float64
+	Nodes_raw          []float64
+	Nodes_derivative   []float64 // this tells how much the output of the neuron changes with respect to each node
+	Biases_derivatives []float64 // this tells how much the output of the neuron changes with respect to each bias
 }
 
 func (net *Net) GetNumLayers() int {
@@ -73,6 +75,7 @@ func NewNetRun(net *Net) *NetworkRunObject {
 		Reference_network: net,
 		Connections:       make([]ConnectionRunInfo, len(net.Connections)),
 		Layers:            make([]LayerRunInfo, len(net.Layers)),
+		Expected_outputs:  make([]float64, net.Layer_sizes[net.FinalLayerIndex()]),
 	}
 
 	for i := range run.Layers {
@@ -115,6 +118,10 @@ func (net *Net) SetWeight(input_layer, input_neuron_index, output_neuron_index u
 
 func (net *Net) SetBias(layer, neuron_index uint, value float64) {
 	net.Layers[layer].Biases[neuron_index] = value
+}
+
+func (net *Net) FinalLayerIndex() uint {
+	return uint(len(net.Layers) - 1)
 }
 
 /*
@@ -166,4 +173,50 @@ func (run *NetworkRunObject) GetFinalRawOutput() []float64 {
 
 func (run *NetworkRunObject) GetLayerState(layer_index uint) (layer_sigmoided, layer_raw []float64) {
 	return run.Layers[layer_index].Nodes_sigmoided, run.Layers[layer_index].Nodes_raw
+}
+
+// computes the derivative of any neuron and updates the run object with it
+func (run *NetworkRunObject) Derivative_of_neuron(layer_index uint, neuron_index uint) float64 {
+	if layer_index == run.Reference_network.FinalLayerIndex() {
+		derivative := run.Derivative_of_final_neuron(neuron_index)
+		return derivative
+	}
+
+	next_layer_index := layer_index + 1
+	run.Layers[layer_index].Nodes_derivative[neuron_index] = 0 // reset derivative just in case
+
+	for output_neuron_index := range run.Reference_network.Layer_sizes[next_layer_index] {
+		// TODO: Write a documentation for this part
+		respective_weight, _ := run.Reference_network.GetConn(layer_index, neuron_index, output_neuron_index)
+		derivative_neuron_with_respect_to_raw := mat.SigmoidDerivative(run.Layers[next_layer_index].Nodes_raw[output_neuron_index])
+		derivative := respective_weight * derivative_neuron_with_respect_to_raw * run.Layers[next_layer_index].Nodes_derivative[output_neuron_index]
+		run.Layers[layer_index].Nodes_derivative[neuron_index] += derivative
+	}
+
+	return run.Layers[layer_index].Nodes_derivative[neuron_index]
+}
+
+// computes the derivative of the final neuron and updates the run object with it
+func (run *NetworkRunObject) Derivative_of_final_neuron(neuron_index uint) float64 {
+	distance_to_expected_result := run.Expected_outputs[neuron_index] - run.Layers[run.Reference_network.FinalLayerIndex()].Nodes_sigmoided[neuron_index]
+	derivative_of_neuron := 2 * distance_to_expected_result
+	run.Layers[run.Reference_network.FinalLayerIndex()].Nodes_derivative[neuron_index] = derivative_of_neuron
+	return derivative_of_neuron
+}
+
+func (run *NetworkRunObject) Derivative_of_weight(input_layer_index uint, input_neuron_index uint, output_neuron_index uint) float64 {
+	output_layer_index := input_layer_index + 1
+	input_neuron_value := run.Layers[input_layer_index].Nodes_sigmoided[input_neuron_index]
+
+	derivative_of_neuron_with_respect_raw := mat.SigmoidDerivative(run.Layers[output_layer_index].Nodes_raw[output_neuron_index])
+	derivative := input_neuron_value * derivative_of_neuron_with_respect_raw * run.Layers[output_layer_index].Nodes_derivative[output_layer_index]
+	run.Connections[input_layer_index].Weights_derivatives[output_neuron_index][input_neuron_index] = derivative
+	return derivative
+}
+
+func (run *NetworkRunObject) Derivative_of_bias(layer_index uint, neuron_index uint) float64 {
+	derivative_of_neuron_with_respect_raw := mat.SigmoidDerivative(run.Layers[layer_index].Nodes_raw[neuron_index])
+	derivative := derivative_of_neuron_with_respect_raw * run.Layers[layer_index].Nodes_derivative[neuron_index]
+	run.Layers[layer_index].Biases_derivatives[neuron_index] = derivative
+	return derivative
 }

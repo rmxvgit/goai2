@@ -148,6 +148,12 @@ func NewAverageRun(net *Net) *AverageRunObject {
 	return average
 }
 
+func (net *Net) Run(input []float64) *NetworkRunObject {
+	run := NewNetRun(net)
+	run.ForwardAll(input)
+	return run
+}
+
 // get the value of the weight and bias between two neurons
 func (net *Net) GetConn(input_layer, input_neuron_index, output_neuron_index uint) (weight, bias float64) {
 	weight = net.Connections[input_layer].Weights[output_neuron_index][input_neuron_index] // weight between the input and output neuron
@@ -291,14 +297,12 @@ func (run *NetworkRunObject) ComputeDerivatives() {
 	}
 }
 
-// TODO: make this function more readable
-func (average *AverageRunObject) AddRun(run *NetworkRunObject) {
+func (average *AverageRunObject) Add(run *NetworkRunObject) {
 	var correction_coefitient float64 = float64(average.Number_of_runs) / float64(average.Number_of_runs+1)
 	for layer_index := range average.Layers {
 		for node_index := range average.Layers[layer_index].Nodes_raw {
 			bias_average := &average.Layers[layer_index].Biases_derivatives[node_index]
 			bias_run := &average.Layers[layer_index].Biases_derivatives[node_index]
-
 			*bias_average = (*bias_average)*correction_coefitient + (*bias_run)/float64(average.Number_of_runs+1)
 		}
 	}
@@ -308,7 +312,6 @@ func (average *AverageRunObject) AddRun(run *NetworkRunObject) {
 			for collumn_index := range average.Connections[connection_index].Weights_derivatives[line_index] {
 				weight_average := &average.Connections[connection_index].Weights_derivatives[line_index][collumn_index]
 				weight_run := &run.Connections[connection_index].Weights_derivatives[line_index][collumn_index]
-
 				*weight_average = (*weight_average)*correction_coefitient + (*weight_run)/float64(average.Number_of_runs+1)
 			}
 		}
@@ -321,7 +324,6 @@ func (average *AverageRunObject) updateNetwork(net *Net, learning_rate float64) 
 		for node_index := range average.Layers[layer_index].Nodes_raw {
 			bias_average_derivative := &average.Layers[layer_index].Biases_derivatives[node_index]
 			bias_value := &net.Layers[layer_index].Biases[node_index]
-
 			*bias_value = (*bias_value) + learning_rate*(*bias_average_derivative)
 		}
 	}
@@ -331,7 +333,6 @@ func (average *AverageRunObject) updateNetwork(net *Net, learning_rate float64) 
 			for collumn_index := range average.Connections[connection_index].Weights_derivatives[line_index] {
 				weight_average_derivative := &average.Connections[connection_index].Weights_derivatives[line_index][collumn_index]
 				weight_value := &net.Connections[connection_index].Weights[line_index][collumn_index]
-
 				*weight_value = (*weight_value) + learning_rate*(*weight_average_derivative)
 			}
 		}

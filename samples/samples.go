@@ -2,24 +2,21 @@ package samples
 
 import (
 	"math"
-	"math/rand/v2"
+	"math/rand"
 )
 
-type SinSample struct {
-	Input           float64
-	Expected_output float64
+type Sample struct {
+	Input           []float64
+	Expected_output []float64
+	NetOutput       []float64
 }
 
-func MakeSamples(n_samples uint) []SinSample {
-	samples := make([]SinSample, n_samples)
-
-	for i := range samples {
-		input := rand.Float64() * 20
-		expect := math.Sin(input) / 2
-		samples[i] = SinSample{
-			Input:           input,
-			Expected_output: expect,
-		}
+func MakeSinSamples(n_samples uint) []Sample {
+	smpls := make([]Sample, n_samples)
+	for i := range smpls {
+		input := rand.Float64() * 3
+		smpls[i].Input = []float64{input}
+		smpls[i].Expected_output = []float64{math.Sin(input) / 3}
 	}
-	return samples
+	return smpls
 }

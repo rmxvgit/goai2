@@ -1,6 +1,7 @@
 package neuralnet_test
 
 import (
+	"fmt"
 	"goai/mat"
 	"goai/neuralnet"
 	"goai/utils"
@@ -85,4 +86,19 @@ func TestForwardLayer2(t *testing.T) {
 	if !utils.SliceCompare(middle_layer, expected_middle_layer) {
 		t.Errorf("Expected middle layer sigmoided output to be %v, got %v", expected_middle_layer, middle_layer)
 	}
+}
+
+func TestDerivativeOfNeuron(t *testing.T) {
+	network := neuralnet.NewNet([]uint{1, 1})
+	network.SetWeight(0, 0, 0, 1)
+	run := neuralnet.NewNetRun(network)
+	run.ForwardAll([]float64{1})
+
+	copy(run.Expected_outputs, []float64{0.8})
+
+	run.ComputeDerivatives()
+
+	fmt.Printf("Derivative weight: %f\n", run.Connections[0].Weights_derivatives[0][0])
+	fmt.Printf("Derivative bias: %f\n", run.Layers[1].Biases_derivatives[0])
+	fmt.Printf("Derivative final neuron: %f\n", run.Layers[1].Nodes_derivative[0])
 }

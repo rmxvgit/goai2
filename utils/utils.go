@@ -29,3 +29,9 @@ func AddSlice[T constraints.Integer | constraints.Float](slice1, slice2 []T) []T
 	}
 	return result
 }
+
+func Expect(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
